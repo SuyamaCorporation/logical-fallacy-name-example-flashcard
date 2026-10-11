@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Logical Fallacy Flashcard Drill</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+.card-scene { perspective: 800px; width: 100%; max-width: 500px; height: 280px; cursor: pointer; margin: 0 auto; }
+.card { width:100%; height:100%; transform-style: preserve-3d; transition: transform 0.6s cubic-bezier(.4,2,.3,1); position: relative; }
+.card.flipped { transform: rotateY(180deg); }
+.card-face { position: absolute; width:100%; height:100%; backface-visibility: hidden; border-radius: 1rem; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 1.5rem; }
+.card-front { background: linear-gradient(135deg, #1e3a5f, #0f2340); border: 2px solid #3b82f6; }
+.card-back { background: linear-gradient(135deg, #1a3a2a, #0f2318); border: 2px solid #22c55e; transform: rotateY(180deg); }
+</style>
+</head>
+<body class="bg-gray-950 text-gray-100 min-h-screen p-4">
+<div class="max-w-2xl mx-auto">
+  <h1 class="text-2xl font-bold text-center text-blue-400 mb-1">Logical Fallacy Flashcards</h1>
+  <p class="text-center text-gray-400 text-sm mb-4">30 Fallacies · Click card to flip</p>
+
+  <!-- Mode tabs -->
+  <div class="flex gap-1 mb-4 bg-gray-800 rounded-lg p-1">
+    <button class="mode-btn flex-1 py-2 rounded text-sm" data-mode="study">Study Mode</button>
+    <button class="mode-btn flex-1 py-2 rounded text-sm" data-mode="quiz">Quiz Mode</button>
+    <button class="mode-btn flex-1 py-2 rounded text-sm" data-mode="progress">Progress</button>
+  </div>
+
+  <!-- Study Mode -->
+  <div id="mode-study">
+    <div class="flex justify-between items-center mb-3 text-sm text-gray-400">
+      <button id="prev-btn" class="bg-gray-700 hover:bg-gray-600 px-3 py-1 rounded">← Prev</button>
+      <span id="card-counter">1 / 30</span>
+      <button id="next-btn" class="bg-gray-700 hover:bg-gray-600 px-3 py-1 rounded">Next →</button>
+    </div>
+    <div class="card-scene" id="card-scene">
+      <div class="card" id="flashcard">
+        <div class="card-face card-front">
+          <div class="text-center">
+            <div id="front-en" class="text-2xl font-bold text-blue-300 mb-2"></div>
+            <div id="front-jp" class="text-lg text-blue-200 mb-3"></div>
+            <div class="text-xs text-gray-500">Click to reveal definition & example</div>
+          </div>
+        </div>
+        <div class="card-face card-back">
+          <div id="back-content" class="text-center overflow-y-auto max-h-60 w-full"></div>
+        </div>
+      </div>
+    </div>
+    <div class="flex justify-center gap-3 mt-4">
+      <button id="btn-shuffle" class="bg-purple-800 hover:bg-purple-700 px-4 py-2 rounded text-sm">Shuffle</button>
+    </div>
+  </div>
+
+  <!-- Quiz Mode -->
+  <div id="mode-quiz" class="hidden">
+    <div class="flex justify-between items-center mb-3 text-sm">
+      <span class="text-gray-400">Quiz Score: <span id="quiz-score" class="text-yellow-400 font-bold">0</span>/<span id="quiz-total" class="text-gray-400">0</span></span>
+      <button id="quiz-new" class="bg-blue-800 hover:bg-blue-700 px-3 py-1 rounded text-xs">New Question</button>
+    </div>
+    <div class="bg-gray-800 rounded-xl p-4 mb-4">
+      <div class="text-xs text-gray-400 mb-2">Which fallacy is this?</div>
+      <div id="quiz-example" class="text-sm text-gray-200 italic leading-relaxed mb-1"></div>
+    </div>
+    <div id="quiz-choices" class="grid grid-cols-2 gap-2"></div>
+    <div id="quiz-result" class="mt-3 text-sm font-bold text-center"></div>
+  </div>
+
+  <!-- Progress -->
+  <div id="mode-progress" class="hidden">
+    <div class="bg-gray-800 rounded-xl p-4">
+      <div class="flex justify-between items-center mb-3">
+        <h2 class="text-sm font-bold text-blue-400">Study Progress</h2>
+        <button id="btn-reset-progress" class="text-xs text-red-400 hover:text-red-300">Reset</button>
+      </div>
+      <div id="progress-list" class="space-y-1 max-h-96 overflow-y-auto"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+function escapeHtml(s) { const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
+
+const FALLACIES = [
+  { en:'Ad Hominem', jp:'人身攻撃', def:'Attacking the person making the argument rather than the argument itself.', ex:'"You can\'t trust John\'s economic advice — he went bankrupt!"' },
+  { en:'Straw Man', jp:'藁人形論法', def:'Misrepresenting someone\'s argument to make it easier to attack.', ex:'"You want to reduce military spending? So you want us to be defenseless!"' },
+  { en:'False Dichotomy', jp:'偽の二分法', def:'Presenting only two options when more exist.', ex:'"You\'re either with us or against us."' },
+  { en:'Slippery Slope', jp:'滑り坂論法', def:'Claiming a small step will inevitably lead to extreme consequences.', ex:'"If we allow gay marriage, next people will want to marry animals."' },
+  { en:'Appeal to Authority', jp:'権威への訴え', def:'Using an authority as evidence without evaluating the argument on its merits.', ex:'"9 out of 10 dentists recommend this toothpaste!"' },
+  { en:'Appeal to Popularity', jp:'多数決論法', def:'Claiming something is true because many people believe it.', ex:'"Millions of people use homeopathy, so it must work."' },
+  { en:'Appeal to Nature', jp:'自然への訴え', def:'Claiming something is good because it is natural, or bad because it is unnatural.', ex:'"This herbal remedy is better because it\'s all natural."' },
+  { en:'Appeal to Emotion', jp:'感情への訴え', def:'Manipulating emotions rather than using logic to win an argument.', ex:'"Think of the children! We must ban this book immediately."' },
+  { en:'Red Herring', jp:'論点すり替え', def:'Introducing an irrelevant topic to divert attention from the main issue.', ex:'During a corruption hearing: "But what about crime rates?"' },
+  { en:'Post Hoc', jp:'後件肯定', def:'Assuming causation from correlation because one thing followed another.', ex:'"I wore my lucky socks and we won the game. My socks caused our win!"' },
+  { en:'Circular Reasoning', jp:'循環論法', def:'The conclusion is used as a premise in the argument.', ex:'"The Bible is true because it says so in the Bible."' },
+  { en:'Hasty Generalization', jp:'早まった一般化', def:'Drawing a broad conclusion from a small or unrepresentative sample.', ex:'"I met two rude French tourists; all French people are rude."' },
+  { en:'False Analogy', jp:'偽の類比', def:'Comparing two things that are not alike in relevant ways.', ex:'"Running a country is like running a business — cut costs, fire underperformers."' },
+  { en:'Equivocation', jp:'多義語の誤用', def:'Using a word with multiple meanings in different senses in the same argument.', ex:'"The sign said \'fine for parking here\'; I thought it was OK to park."' },
+  { en:'Bandwagon', jp:'バンドワゴン', def:'Claiming something is good because it is popular or everyone is doing it.', ex:'"Everyone\'s investing in crypto — you should too!"' },
+  { en:'Sunk Cost', jp:'サンクコスト', def:'Continuing because of past investment rather than future value.', ex:'"I\'ve already paid for the class, so I must finish it even though I hate it."' },
+  { en:'Gambler\'s Fallacy', jp:'ギャンブラーの誤謬', def:'Believing past random events affect future ones.', ex:'"The coin landed heads 5 times in a row, so tails is \'due\'."' },
+  { en:'Anecdotal Evidence', jp:'事例証拠', def:'Using personal experience or isolated examples as proof of a general claim.', ex:'"My grandfather smoked all his life and lived to 95. Smoking can\'t be that harmful."' },
+  { en:'Texas Sharpshooter', jp:'テキサスの名射手', def:'Cherry-picking data to fit a predetermined conclusion.', ex:'Shooting holes in a barn, then drawing a target around the cluster.' },
+  { en:'Begging the Question', jp:'問いの先取り', def:'Assuming the truth of the conclusion in the premise.', ex:'"Abortion is murder because it kills a human being." (assumes the contested premise)' },
+  { en:'Whataboutism', jp:'ホワットアバウティズム', def:'Deflecting criticism by pointing to others\' faults.', ex:'"Yes, we pollute, but what about China?"' },
+  { en:'Appeal to Ignorance', jp:'無知への訴え', def:'Claiming something is true because it hasn\'t been proven false (or vice versa).', ex:'"No one has disproved UFOs exist, so they must."' },
+  { en:'Loaded Question', jp:'誘導尋問', def:'Asking a question with a built-in, unjustified assumption.', ex:'"Have you stopped cheating on your taxes?"' },
+  { en:'No True Scotsman', jp:'本物のスコットランド人', def:'Redefining a category to exclude counterexamples.', ex:'"No true Scotsman would do such a thing." (after a Scotsman does it)' },
+  { en:'False Cause', jp:'偽りの原因', def:'Incorrectly identifying the cause of something.', ex:'"Ice cream sales and drowning rates both rise in summer, so ice cream causes drowning."' },
+  { en:'Affirming the Consequent', jp:'後件肯定', def:'If A then B; B is true; therefore A must be true.', ex:'"If it rains, the grass gets wet. The grass is wet, so it must have rained."' },
+  { en:'Denying the Antecedent', jp:'前件否定', def:'If A then B; not A; therefore not B.', ex:'"If you eat well, you\'ll be healthy. You didn\'t eat well, so you won\'t be healthy."' },
+  { en:'Middle Ground', jp:'中間への訴え', def:'Claiming the truth must lie between two extremes.', ex:'"Some say vaccines cause autism; others say they don\'t — the truth is probably somewhere in between."' },
+  { en:'Burden of Proof', jp:'立証責任', def:'Demanding others disprove a claim rather than providing evidence for it.', ex:'"Prove that gnomes don\'t exist!"' },
+  { en:'Black-or-White', jp:'白か黒か', def:'Presenting a binary choice when a spectrum of options exists.', ex:'"You\'re either a patriot or a traitor — there\'s no middle ground."' }
+];
+
+let cardOrder = FALLACIES.map((_,i) => i);
+let currentCard = 0;
+let isFlipped = false;
+let quizScore = 0, quizTotal = 0;
+let currentQuizIdx = -1;
+
+function getProgress() { return JSON.parse(localStorage.getItem('fallacy-progress') || '{}'); }
+function saveProgress(p) { localStorage.setItem('fallacy-progress', JSON.stringify(p)); }
+
+function showCard(idx) {
+  const f = FALLACIES[cardOrder[idx]];
+  document.getElementById('front-en').textContent = f.en;
+  document.getElementById('front-jp').textContent = f.jp;
+  const back = document.getElementById('back-content');
+  back.innerHTML = `
+    <div class="text-sm font-bold text-green-300 mb-2">${escapeHtml(f.en)} <span class="text-green-500">(${escapeHtml(f.jp)})</span></div>
+    <div class="text-xs text-gray-300 mb-3">${escapeHtml(f.def)}</div>
+    <div class="text-xs text-amber-300 italic">${escapeHtml(f.ex)}</div>
+  `;
+  const prog = getProgress();
+  const key = String(cardOrder[idx]);
+  const seen = prog[key]?.seen || 0;
+  document.getElementById('card-counter').textContent = `${idx+1} / ${FALLACIES.length} (seen: ${seen})`;
+  // Mark as seen
+  if (!prog[key]) prog[key] = { seen:0, correct:0, wrong:0 };
+  if (!isFlipped) prog[key].seen = (prog[key].seen||0) + 1;
+  saveProgress(prog);
+}
+
+function flipCard() {
+  isFlipped = !isFlipped;
+  document.getElementById('flashcard').classList.toggle('flipped', isFlipped);
+}
+
+document.getElementById('card-scene').addEventListener('click', flipCard);
+
+document.getElementById('prev-btn').addEventListener('click', () => {
+  isFlipped = false;
+  document.getElementById('flashcard').classList.remove('flipped');
+  currentCard = (currentCard - 1 + FALLACIES.length) % FALLACIES.length;
+  showCard(currentCard);
+});
+document.getElementById('next-btn').addEventListener('click', () => {
+  isFlipped = false;
+  document.getElementById('flashcard').classList.remove('flipped');
+  currentCard = (currentCard + 1) % FALLACIES.length;
+  showCard(currentCard);
+});
+document.getElementById('btn-shuffle').addEventListener('click', () => {
+  for (let i = cardOrder.length-1; i>0; i--) {
+    const j = Math.floor(Math.random()*(i+1));
+    [cardOrder[i],cardOrder[j]] = [cardOrder[j],cardOrder[i]];
+  }
+  currentCard = 0;
+  isFlipped = false;
+  document.getElementById('flashcard').classList.remove('flipped');
+  showCard(0);
+});
+
+// Quiz
+function newQuiz() {
+  const idx = Math.floor(Math.random() * FALLACIES.length);
+  currentQuizIdx = idx;
+  const f = FALLACIES[idx];
+  document.getElementById('quiz-example').textContent = f.ex;
+
+  // 4 choices
+  const choices = [idx];
+  while (choices.length < 4) {
+    const r = Math.floor(Math.random() * FALLACIES.length);
+    if (!choices.includes(r)) choices.push(r);
+  }
+  choices.sort(() => Math.random() - 0.5);
+
+  const container = document.getElementById('quiz-choices');
+  container.innerHTML = '';
+  document.getElementById('quiz-result').textContent = '';
+  choices.forEach(ci => {
+    const btn = document.createElement('button');
+    btn.className = 'bg-gray-700 hover:bg-gray-600 rounded-lg p-3 text-sm text-left';
+    btn.textContent = FALLACIES[ci].en;
+    btn.addEventListener('click', () => {
+      quizTotal++;
+      const prog = getProgress();
+      const key = String(currentQuizIdx);
+      if (!prog[key]) prog[key] = { seen:0, correct:0, wrong:0 };
+      const result = document.getElementById('quiz-result');
+      if (ci === idx) {
+        quizScore++;
+        prog[key].correct = (prog[key].correct||0)+1;
+        btn.className = 'bg-green-800 rounded-lg p-3 text-sm text-left ring-2 ring-green-400';
+        result.textContent = '✓ Correct! ' + FALLACIES[idx].def;
+        result.className = 'mt-3 text-sm font-bold text-center text-green-400';
+      } else {
+        prog[key].wrong = (prog[key].wrong||0)+1;
+        btn.className = 'bg-red-900 rounded-lg p-3 text-sm text-left ring-2 ring-red-400';
+        result.textContent = `✗ Wrong. It was: ${FALLACIES[idx].en}`;
+        result.className = 'mt-3 text-sm font-bold text-center text-red-400';
+      }
+      saveProgress(prog);
+      // Disable all buttons
+      container.querySelectorAll('button').forEach(b => b.disabled = true);
+      document.getElementById('quiz-score').textContent = quizScore;
+      document.getElementById('quiz-total').textContent = quizTotal;
+    });
+    container.appendChild(btn);
+  });
+}
+document.getElementById('quiz-new').addEventListener('click', newQuiz);
+
+// Progress
+function renderProgress() {
+  const prog = getProgress();
+  const list = document.getElementById('progress-list');
+  list.innerHTML = '';
+  FALLACIES.forEach((f,i) => {
+    const p = prog[String(i)] || { seen:0, correct:0, wrong:0 };
+    const div = document.createElement('div');
+    div.className = 'flex justify-between items-center text-xs py-1 border-b border-gray-700';
+    const total = (p.correct||0) + (p.wrong||0);
+    const pct = total > 0 ? Math.round(p.correct/total*100) : null;
+    div.innerHTML = `
+      <span class="text-gray-300">${escapeHtml(f.en)} <span class="text-gray-600">(${escapeHtml(f.jp)})</span></span>
+      <span class="text-gray-500">seen:${p.seen||0} ${pct!==null ? `acc:${pct}%` : ''}</span>
+    `;
+    list.appendChild(div);
+  });
+}
+
+document.getElementById('btn-reset-progress').addEventListener('click', () => {
+  localStorage.removeItem('fallacy-progress');
+  renderProgress();
+});
+
+// Mode switching
+function showMode(name) {
+  ['study','quiz','progress'].forEach(m => {
+    document.getElementById('mode-'+m).classList.toggle('hidden', m!==name);
+    document.querySelectorAll('.mode-btn').forEach(b => {
+      b.className = `mode-btn flex-1 py-2 rounded text-sm ${b.dataset.mode===name ? 'bg-blue-800 text-white font-medium' : 'text-gray-400 hover:text-gray-200'}`;
+    });
+  });
+  if (name==='progress') renderProgress();
+  if (name==='quiz') newQuiz();
+}
+document.querySelectorAll('.mode-btn').forEach(b => b.addEventListener('click', () => showMode(b.dataset.mode)));
+
+showMode('study');
+showCard(0);
+</script>
+</body>
+</html>
